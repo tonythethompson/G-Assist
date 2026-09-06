@@ -97,7 +97,7 @@ class Protocol {
     }
 
     close() {
-        this.closed = false;
+        this.closed = true;
     }
 
     _readBytes(count) {
@@ -223,9 +223,9 @@ class Plugin {
         this.log('Starting plugin main loop');
         this.running = true;
 
-        // Set stdin to raw mode for binary reading
-        if (process.stdin.setRawMode) {
-            process.stdin.setRawMode(true);
+        // Length-prefixed JSON-RPC needs buffered binary reads, not TTY raw mode.
+        if (typeof process.stdin.setEncoding === 'function') {
+            process.stdin.setEncoding(null);
         }
         process.stdin.resume();
 
