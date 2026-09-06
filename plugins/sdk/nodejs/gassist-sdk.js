@@ -223,10 +223,8 @@ class Plugin {
         this.log('Starting plugin main loop');
         this.running = true;
 
-        // Length-prefixed JSON-RPC needs buffered binary reads, not TTY raw mode.
-        if (typeof process.stdin.setEncoding === 'function') {
-            process.stdin.setEncoding(null);
-        }
+        // Length-prefixed JSON-RPC needs buffered binary reads. Do not call
+        // setEncoding; an encoding makes stdin emit strings instead of Buffers.
         process.stdin.resume();
 
         while (this.running) {
