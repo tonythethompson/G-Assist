@@ -123,8 +123,13 @@ set "P_REQUIREMENTS=%P_DIR%\requirements.txt"
 if exist "%P_REQUIREMENTS%" (
     findstr /v /r "^#" "%P_REQUIREMENTS%" | findstr /r /v "^$" >nul 2>&1
     if not errorlevel 1 (
-        echo Installing pip dependencies to libs/...
-        "%PYTHON%" -m pip install -r "%P_REQUIREMENTS%" --target "%P_LIBS%" --upgrade --quiet
+        if not defined PYTHON (
+            echo ERROR: No Python interpreter found. Cannot install pip dependencies.
+            echo   Install G-Assist, add python to PATH, or set GA_PYTHON_DEV to a python.exe.
+        ) else (
+            echo Installing pip dependencies to libs/...
+            "%PYTHON%" -m pip install -r "%P_REQUIREMENTS%" --target "%P_LIBS%" --upgrade --quiet
+        )
     ) else (
         echo No pip dependencies in requirements.txt
     )
@@ -413,6 +418,17 @@ exit /b 0
 :: CHECK PYTHON VERSION
 :: ============================================================
 :check_python_version
+:: Prefer an explicit override so plugin authors can match a chosen interpreter.
+if defined GA_PYTHON_DEV (
+    if exist "%GA_PYTHON_DEV%" (
+        set "PYTHON=%GA_PYTHON_DEV%"
+        for /f "tokens=2" %%v in ('"%PYTHON%" --version 2^>^&1') do set CURRENT_VERSION=%%v
+        echo Using GA_PYTHON_DEV: "%PYTHON%" (version !CURRENT_VERSION!)
+        goto :eof
+    )
+    echo WARNING: GA_PYTHON_DEV is set but was not found: "%GA_PYTHON_DEV%"
+)
+
 :: Prefer the RISE embedded interpreter so wheels match the runtime G-Assist uses.
 if exist "%RISE_PYTHON%" (
     set "PYTHON=%RISE_PYTHON%"
