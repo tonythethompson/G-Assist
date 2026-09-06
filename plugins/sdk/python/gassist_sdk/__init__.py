@@ -11,7 +11,7 @@ Basic Plugin Example:
     @plugin.command("search")
     def search(query: str):
         plugin.stream("Searching...")
-        return {"results": do_search(query)}
+        return f"Found {len(results)} results."
 
     if __name__ == "__main__":
         plugin.run()
