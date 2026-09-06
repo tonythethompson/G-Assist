@@ -369,11 +369,15 @@ class Plugin:
             except subprocess.TimeoutExpired:
                 logger.warning(f"Plugin '{self.name}' did not exit after shutdown notification")
         
-        self.stop()
-        
+        stopped = self.stop()
+        if stopped:
+            return PluginResponse(
+                success=True,
+                message="Plugin stopped"
+            )
         return PluginResponse(
-            success=True,
-            message="Plugin stopped"
+            success=False,
+            message="Failed to stop plugin"
         )
     
     def execute(
