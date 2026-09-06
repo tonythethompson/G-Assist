@@ -232,6 +232,14 @@ class Plugin:
             logger.error(f"Unexpected error: {e}\n{traceback.format_exc()}")
         finally:
             self._running = False
+
+            # Drop any queued execute/input requests; we're shutting down.
+            try:
+                while True:
+                    self._work_queue.get_nowait()
+            except queue.Empty:
+                pass
+
             self._work_queue.put(None)
             if self._worker_thread is not None:
                 self._worker_thread.join(timeout=2.0)
