@@ -627,6 +627,8 @@ class MCPPlugin(Plugin):
         
         # Session manager (created after MCP client)
         self._session_manager: Optional["MCPSessionManager"] = None
+        self._session_stop_requested = False
+        self._session_lifecycle_lock = threading.Lock()
         
         # Discovery function (set via decorator)
         self._discoverer: Optional[Callable[["MCPClient"], List["FunctionDef"]]] = None
@@ -726,7 +728,9 @@ class MCPPlugin(Plugin):
         try:
             super().run()
         finally:
-            self._stop_session_manager()
+            with self._session_lifecycle_lock:
+                self._session_stop_requested = True
+                self._stop_session_manager_unlocked()
 
     def _startup_discovery_and_session(self):
         """Discover MCP tools without blocking initialize/ping."""
@@ -735,29 +739,36 @@ class MCPPlugin(Plugin):
     
     def _start_session_manager(self):
         """Start the session manager for auto-refresh and polling."""
-        if not self.mcp or (not self._auto_refresh_session and self._poll_interval <= 0):
-            return
+        with self._session_lifecycle_lock:
+            if self._session_stop_requested:
+                return
+            if not self.mcp or (not self._auto_refresh_session and self._poll_interval <= 0):
+                return
         
-        from .mcp import MCPSessionManager
+            from .mcp import MCPSessionManager
         
-        # Use action_poller if provided (for dynamic data like Stream Deck actions)
-        # Otherwise use default MCP tools/list polling
-        custom_poll_fn = self._action_poller if self._action_poller else None
+            # Use action_poller if provided (for dynamic data like Stream Deck actions)
+            # Otherwise use default MCP tools/list polling
+            custom_poll_fn = self._action_poller if self._action_poller else None
         
-        self._session_manager = MCPSessionManager(
-            client=self.mcp,
-            poll_interval=self._poll_interval if (self._discoverer or self._action_poller) else 0,
-            session_refresh_margin=self._session_refresh_margin,
-            on_tools_changed=self._on_tools_changed,
-            on_session_refreshed=self._on_session_refreshed,
-            on_error=self._on_session_error,
-            custom_poll_fn=custom_poll_fn
-        )
-        self._session_manager.start()
-        logger.info(f"Session manager started (custom_poll={'yes' if custom_poll_fn else 'no'})")
+            self._session_manager = MCPSessionManager(
+                client=self.mcp,
+                poll_interval=self._poll_interval if (self._discoverer or self._action_poller) else 0,
+                session_refresh_margin=self._session_refresh_margin,
+                on_tools_changed=self._on_tools_changed,
+                on_session_refreshed=self._on_session_refreshed,
+                on_error=self._on_session_error,
+                custom_poll_fn=custom_poll_fn
+            )
+            self._session_manager.start()
+            logger.info(f"Session manager started (custom_poll={'yes' if custom_poll_fn else 'no'})")
     
     def _stop_session_manager(self):
         """Stop the session manager."""
+        with self._session_lifecycle_lock:
+            self._stop_session_manager_unlocked()
+
+    def _stop_session_manager_unlocked(self):
         if self._session_manager:
             self._session_manager.stop()
             self._session_manager = None
