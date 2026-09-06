@@ -225,7 +225,7 @@ class Plugin {
 
         // Length-prefixed JSON-RPC needs buffered binary reads. Do not call
         // setEncoding; an encoding makes stdin emit strings instead of Buffers.
-        process.stdin.resume();
+        process.stdin.pause();
 
         while (this.running) {
             const message = await this.protocol.readMessage();
