@@ -111,24 +111,25 @@ The emulator shows detailed progress during initialization:
 
 ```
 Scanning plugins directory: /path/to/plugins
-Discovered 4 plugin(s): hello-world, gemini, logiled, mcp-stdio-example
+Discovered 4 plugin(s): gemini, hello-world, logiled, mcp-stdio-example
 
 Loading plugins...
-  [1/4] Loading hello-world... OK (3 functions)
-  [2/4] Loading gemini... OK (1 functions)
+  [1/4] Loading gemini... OK (1 functions)
+  [2/4] Loading hello-world... OK (3 functions)
   [3/4] Loading logiled... OK (3 functions)
-  [4/4] Loading mcp-stdio-example... OK (MCP)
+  [4/4] Loading mcp-stdio-example... OK (14 functions) (MCP)
 
 Starting 4 persistent plugin(s)...
-  [1/4] Starting hello-world... OK
-  [2/4] Starting gemini... OK
+  [1/4] Starting gemini... OK
+  [2/4] Starting hello-world... OK
   [3/4] Starting logiled... OK
   [4/4] Starting mcp-stdio-example... OK
 
 Waiting for MCP plugins to discover functions: mcp-stdio-example
   ..... done
+Refreshing MCP plugin manifests...
 
-Initialization complete: 4 plugins, 12 functions
+Initialization complete: 4 plugins, 21 functions
 ```
 
 ## Plugin Validation
