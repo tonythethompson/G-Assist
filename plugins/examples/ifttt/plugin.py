@@ -282,7 +282,7 @@ def trigger_gaming_setup(event_name: str = "", _from_pending: bool = False):
                 "Please try again later."
             )
     except Exception as e:
-        logger.error(f"Error triggering IFTTT webhook {EVENT_NAME}: {str(e)}")
+        logger.error(f"Error triggering IFTTT webhook {chosen_event}: {str(e)}")
         return (
             "**Connection error.**\n\n"
             "Unable to reach IFTTT. Please check your internet connection and try again."

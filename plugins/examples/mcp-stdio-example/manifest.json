@@ -359,6 +359,7 @@
       "name": "plugin_status",
       "description": "Show the plugin status, connected MCP server info, and allowed directories.",
       "tags": [
+        "plugin_status",
         "status",
         "mcp",
         "stdio"
