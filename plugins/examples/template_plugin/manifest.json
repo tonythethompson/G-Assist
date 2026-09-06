@@ -17,7 +17,7 @@
           "description": "Free-form text to echo back to the user."
         }
       },
-      "required": ["text"]
+      "required": []
     },
     {
       "name": "template_collect_note",

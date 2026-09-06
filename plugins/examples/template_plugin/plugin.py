@@ -80,7 +80,7 @@ def template_collect_note(prompt: str = ""):
     """Start passthrough until the user types done or cancel."""
     global pending_note
     pending_note = ""
-    intro = prompt.strip() or "Send a note. Type done when finished, or cancel to abort."
+    intro = (prompt or "").strip() or "Send a note. Type done when finished, or cancel to abort."
     plugin.set_keep_session(True)
     logger.info("template_collect_note started")
     return intro
