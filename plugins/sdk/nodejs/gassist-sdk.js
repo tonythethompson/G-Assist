@@ -17,6 +17,32 @@
 const fs = require('fs');
 const path = require('path');
 
+function asText(data) {
+    if (data == null) return '';
+    if (typeof data === 'string') return data;
+    try {
+        const text = JSON.stringify(data);
+        if (typeof text === 'string') return text;
+    } catch (err) {
+        // BigInt, circular refs, and similar values throw; fall through.
+    }
+    try {
+        return String(data);
+    } catch (err) {
+        return '';
+    }
+}
+
+function rpcParams(message) {
+    const params = message.params;
+    return (params && typeof params === 'object' && !Array.isArray(params)) ? params : {};
+}
+
+function rpcArguments(params) {
+    const args = params.arguments;
+    return (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+}
+
 // ============================================================================
 // Protocol Handler
 // ============================================================================
@@ -97,7 +123,7 @@ class Protocol {
     }
 
     close() {
-        this.closed = false;
+        this.closed = true;
     }
 
     _readBytes(count) {
@@ -144,6 +170,7 @@ class Plugin {
         this.running = false;
         this.currentRequestId = null;
         this.keepSession = false;
+        this._workChain = Promise.resolve();
 
         // Setup logging
         this.logFile = null;
@@ -203,7 +230,7 @@ class Plugin {
             method: 'stream',
             params: {
                 request_id: this.currentRequestId,
-                data: data
+                data: asText(data)
             }
         });
     }
@@ -216,6 +243,14 @@ class Plugin {
         this.keepSession = keep;
     }
 
+    _dispatchWork(fn) {
+        this._workChain = this._workChain
+            .then(fn)
+            .catch((err) => {
+                this.log(`Work queue error: ${err.message}`);
+            });
+    }
+
     /**
      * Run the plugin main loop
      */
@@ -223,27 +258,26 @@ class Plugin {
         this.log('Starting plugin main loop');
         this.running = true;
 
-        // Set stdin to raw mode for binary reading
-        if (process.stdin.setRawMode) {
-            process.stdin.setRawMode(true);
-        }
-        process.stdin.resume();
+        // Length-prefixed JSON-RPC needs buffered binary reads. Do not call
+        // setEncoding; an encoding makes stdin emit strings instead of Buffers.
+        process.stdin.pause();
 
         while (this.running) {
             const message = await this.protocol.readMessage();
             if (!message) break;
 
-            await this._handleMessage(message);
+            this._handleMessage(message);
         }
 
+        await this._workChain;
         this.log('Plugin stopped');
         process.exit(0);
     }
 
-    async _handleMessage(message) {
+    _handleMessage(message) {
         const method = message.method || '';
         const id = message.id;
-        const params = message.params || {};
+        const params = rpcParams(message);
 
         this.log(`Received: ${method}`);
 
@@ -255,10 +289,10 @@ class Plugin {
                 this._handleInitialize(id, params);
                 break;
             case 'execute':
-                await this._handleExecute(id, params);
+                this._dispatchWork(() => this._handleExecute(id, params));
                 break;
             case 'input':
-                await this._handleInput(id, params);
+                this._dispatchWork(() => this._handleInput(id, params));
                 break;
             case 'shutdown':
                 this.running = false;
@@ -299,7 +333,7 @@ class Plugin {
 
     async _handleExecute(id, params) {
         const functionName = params.function || '';
-        const args = params.arguments || {};
+        const args = rpcArguments(params);
 
         this.log(`Executing: ${functionName}`);
 
@@ -360,7 +394,7 @@ class Plugin {
             params: {
                 request_id: requestId,
                 success: success,
-                data: data,
+                data: asText(data),
                 keep_session: this.keepSession
             }
         });
@@ -380,4 +414,3 @@ class Plugin {
 }
 
 module.exports = { Plugin, Protocol };
-
