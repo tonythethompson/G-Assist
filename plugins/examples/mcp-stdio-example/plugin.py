@@ -71,7 +71,7 @@ except ImportError as e:
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-PLUGIN_NAME = "mcp-stdio-filesystem"
+PLUGIN_NAME = "mcp-stdio-example"
 PLUGIN_VERSION = "1.0.0"
 
 # Directories the MCP filesystem server is allowed to operate on.
