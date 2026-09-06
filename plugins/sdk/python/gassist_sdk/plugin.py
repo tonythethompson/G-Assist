@@ -20,6 +20,7 @@ import sys
 import os
 import traceback
 import signal
+import threading
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 from dataclasses import dataclass, field
 
@@ -123,6 +124,7 @@ class Plugin:
         self._current_request_id: Optional[int] = None
         self._initialized = False
         self._keep_session = False
+        self._execute_lock = threading.Lock()
         
         # Register shutdown handler
         signal.signal(signal.SIGTERM, self._handle_signal)
@@ -222,15 +224,28 @@ class Plugin:
             logger.info(f"Plugin '{self.name}' stopped")
     
     def _run_loop(self):
-        """Main loop for V2 (JSON-RPC) protocol."""
+        """Main loop for V2 (JSON-RPC) protocol.
+
+        Ping/initialize/shutdown stay on this thread so a long command cannot
+        miss the engine watchdog (ping timeout is 1s; two misses kill the plugin).
+        """
         while self._running:
             try:
                 request = self._protocol.read_message()
                 if request is None:
                     break
-                
-                self._handle_request(request)
-                
+
+                if request.method in ("execute", "input"):
+                    worker = threading.Thread(
+                        target=self._handle_request_safe,
+                        args=(request,),
+                        name=f"gassist-{request.method}",
+                        daemon=True,
+                    )
+                    worker.start()
+                else:
+                    self._handle_request(request)
+
             except ConnectionClosed:
                 break
             except ProtocolError as e:
@@ -238,6 +253,14 @@ class Plugin:
                 # Continue trying to read next message
             except Exception as e:
                 logger.error(f"Error processing message: {e}\n{traceback.format_exc()}")
+
+    def _handle_request_safe(self, request: JsonRpcRequest):
+        """Run execute/input on a worker without racing another command."""
+        try:
+            with self._execute_lock:
+                self._handle_request(request)
+        except Exception as e:
+            logger.error(f"Error processing {request.method}: {e}\n{traceback.format_exc()}")
     
     def _handle_request(self, request: JsonRpcRequest):
         """Handle a JSON-RPC request."""
@@ -666,12 +689,21 @@ class MCPPlugin(Plugin):
     
     def run(self):
         """Start plugin with auto-discovery and session management."""
-        self._startup_discovery()
-        self._start_session_manager()
+        discovery = threading.Thread(
+            target=self._startup_discovery_and_session,
+            name="gassist-mcp-discovery",
+            daemon=True,
+        )
+        discovery.start()
         try:
             super().run()
         finally:
             self._stop_session_manager()
+
+    def _startup_discovery_and_session(self):
+        """Discover MCP tools without blocking initialize/ping."""
+        self._startup_discovery()
+        self._start_session_manager()
     
     def _start_session_manager(self):
         """Start the session manager for auto-refresh and polling."""
