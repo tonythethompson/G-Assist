@@ -592,12 +592,17 @@ class Plugin:
     
     def _queue_notification(self, request_id: Any, response: PluginResponse) -> None:
         """Deliver complete/error to the matching pending request, or broadcast."""
-        if request_id is not None and request_id in self._pending_responses:
-            self._pending_responses[request_id].put(response)
+        if request_id is not None:
+            response_queue = self._pending_responses.get(request_id)
+            if response_queue is None:
+                logger.warning(
+                    f"Notification for unknown request_id {request_id} from plugin '{self.name}'"
+                )
+                return
+            response_queue.put(response)
             return
         for queue_obj in self._pending_responses.values():
             queue_obj.put(response)
-    
     def _send_request(self, request: JsonRpcRequest) -> bool:
         """Send a request without waiting for response"""
         if not self._process or not self._process.stdin:
