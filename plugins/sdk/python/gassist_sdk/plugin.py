@@ -83,6 +83,11 @@ def command(name: str = None, description: str = None):
     return decorator
 
 
+def _rpc_params(request: "JsonRpcRequest") -> Dict[str, Any]:
+    """JSON-RPC params may be a dict, list, or null. Handlers only accept objects."""
+    return request.params if isinstance(request.params, dict) else {}
+
+
 class Plugin:
     """
     Main plugin class using Protocol V2 (JSON-RPC 2.0).
@@ -245,7 +250,6 @@ class Plugin:
     def _handle_request(self, request: JsonRpcRequest):
         """Handle a JSON-RPC request."""
         method = request.method
-        params = request.params or {}
         
         logger.debug(f"Received request: {method} (id={request.id})")
         
@@ -272,7 +276,7 @@ class Plugin:
     
     def _handle_ping(self, request: JsonRpcRequest):
         """Handle ping request - respond immediately."""
-        timestamp = request.params.get("timestamp") if request.params else None
+        timestamp = _rpc_params(request).get("timestamp")
         
         response = JsonRpcResponse.success(
             request.id,
@@ -283,7 +287,7 @@ class Plugin:
     
     def _handle_initialize(self, request: JsonRpcRequest):
         """Handle initialization request."""
-        params = request.params or {}
+        params = _rpc_params(request)
         
         logger.info(f"Initializing with engine version: {params.get('engine_version', 'unknown')}")
         
@@ -316,7 +320,7 @@ class Plugin:
     
     def _handle_execute(self, request: JsonRpcRequest):
         """Handle command execution request."""
-        params = request.params if isinstance(request.params, dict) else {}
+        params = _rpc_params(request)
         function_name = params.get("function", "")
         arguments = params.get("arguments") or {}
         context_data = params.get("context") or []
@@ -362,7 +366,7 @@ class Plugin:
     
     def _handle_input(self, request: JsonRpcRequest):
         """Handle user input during passthrough mode."""
-        params = request.params or {}
+        params = _rpc_params(request)
         content = params.get("content", "")
         
         logger.info(f"Received user input: {content[:50]}...")
