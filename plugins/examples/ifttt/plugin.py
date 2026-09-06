@@ -213,7 +213,10 @@ def trigger_gaming_setup(event_name: str = "", _from_pending: bool = False):
     load_config()
     chosen_event = (event_name or "").strip() or EVENT_NAME
     if not SETUP_COMPLETE or not IFTTT_WEBHOOK_KEY or not chosen_event:
-        store_pending_call(trigger_gaming_setup, event_name=chosen_event)
+        pending_kwargs = {}
+        if (event_name or "").strip():
+            pending_kwargs["event_name"] = event_name.strip()
+        store_pending_call(trigger_gaming_setup, **pending_kwargs)
         logger.info("[COMMAND] Webhook not configured - showing setup wizard")
         plugin.set_keep_session(True)
         # Open IFTTT join/login page and config file for user
