@@ -21,9 +21,15 @@ function asText(data) {
     if (data == null) return '';
     if (typeof data === 'string') return data;
     try {
-        return JSON.stringify(data);
+        const text = JSON.stringify(data);
+        if (typeof text === 'string') return text;
     } catch (err) {
+        // BigInt, circular refs, and similar values throw; fall through.
+    }
+    try {
         return String(data);
+    } catch (err) {
+        return '';
     }
 }
 

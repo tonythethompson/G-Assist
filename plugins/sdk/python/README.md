@@ -511,7 +511,7 @@ Create a `manifest.json` alongside your plugin:
 
 ### Plugin not responding
 
-Check `gassist_sdk.log` in the plugin working directory for error messages.
+Check `gassist_sdk.log` in the plugin working directory for error messages. If that directory is not writable, the SDK writes the same file in the system temp directory instead.
 
 ### Commands not found
 
