@@ -33,10 +33,12 @@ echo.
 if /i "%PLUGIN_NAME%"=="all" (
     echo Setting up ALL plugins...
     echo.
-    
+    set SETUP_FAILED=0
+
     for /d %%d in ("%EXAMPLES_DIR%*") do (
         if exist "%%d\manifest.json" (
             call :setup_plugin "%%~nxd"
+            if errorlevel 1 set SETUP_FAILED=1
         )
     )
     
@@ -44,12 +46,14 @@ if /i "%PLUGIN_NAME%"=="all" (
     echo ============================================================
     echo All plugins setup complete!
     echo ============================================================
+    if !SETUP_FAILED!==1 exit /b 1
 )
 if /i "%PLUGIN_NAME%"=="all" goto :done
 
 :: Single plugin setup
 if exist "%EXAMPLES_DIR%%PLUGIN_NAME%\manifest.json" (
     call :setup_plugin "%PLUGIN_NAME%"
+    if errorlevel 1 exit /b 1
 ) else (
     echo ERROR: Plugin "%PLUGIN_NAME%" not found.
     echo.
@@ -92,7 +96,10 @@ echo Plugin type: %P_TYPE%
 if not exist "%P_LIBS%" mkdir "%P_LIBS%"
 
 :: Handle based on plugin type
-if "%P_TYPE%"=="python" call :setup_python
+if "%P_TYPE%"=="python" (
+    call :setup_python
+    if errorlevel 1 exit /b 1
+)
 if "%P_TYPE%"=="cpp" call :setup_cpp
 if "%P_TYPE%"=="nodejs" call :setup_nodejs
 if "%P_TYPE%"=="unknown" (
@@ -126,6 +133,7 @@ if exist "%P_REQUIREMENTS%" (
         if not defined PYTHON (
             echo ERROR: No Python interpreter found. Cannot install pip dependencies.
             echo   Install G-Assist, add python to PATH, or set GA_PYTHON_DEV to a python.exe.
+            exit /b 1
         ) else (
             echo Installing pip dependencies to libs/...
             "%PYTHON%" -m pip install -r "%P_REQUIREMENTS%" --target "%P_LIBS%" --upgrade --quiet
