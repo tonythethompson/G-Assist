@@ -137,8 +137,8 @@ class Protocol:
                 
                 payload = json.dumps(message, ensure_ascii=False, default=safe_serialize).encode("utf-8")
                 
-                # DEBUG: Log exactly what we're sending
-                logger.info(f"SENDING MESSAGE: {payload[:500]}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("SENDING MESSAGE: %s", payload[:500])
                 
                 if len(payload) > self.MAX_MESSAGE_SIZE:
                     logger.error(f"Message too large to send: {len(payload)} bytes")

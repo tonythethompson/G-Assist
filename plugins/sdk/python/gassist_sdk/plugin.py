@@ -181,6 +181,9 @@ class Plugin:
     
     def log(self, message: str, level: LogLevel = LogLevel.INFO):
         """Send a log message to the engine (for debugging)."""
+        if not self._protocol:
+            logger.warning("log() called before run(); %s", message)
+            return
         notification = JsonRpcNotification(
             method="log",
             params={
@@ -315,9 +318,13 @@ class Plugin:
         """Handle command execution request."""
         params = request.params or {}
         function_name = params.get("function", "")
-        arguments = params.get("arguments", {})
-        context_data = params.get("context", [])
-        system_info_data = params.get("system_info", "")
+        arguments = params.get("arguments") or {}
+        context_data = params.get("context") or []
+        system_info_data = params.get("system_info") or ""
+        if not isinstance(arguments, dict):
+            arguments = {}
+        if not isinstance(context_data, list):
+            context_data = []
         
         logger.info(f"Executing command: {function_name}")
         
@@ -402,6 +409,8 @@ class Plugin:
     ) -> Any:
         """Call a command handler with appropriate arguments."""
         import inspect
+        if not isinstance(arguments, dict):
+            arguments = {}
         sig = inspect.signature(handler)
         
         # Build kwargs based on what the handler accepts
