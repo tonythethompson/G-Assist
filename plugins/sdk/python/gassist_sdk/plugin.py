@@ -181,9 +181,9 @@ class Plugin:
     
     def log(self, message: str, level: LogLevel = LogLevel.INFO):
         """Send a log message to the engine (for debugging)."""
-if not self._protocol:
-    logger.warning("log() called before run()")
-    return
+        if not self._protocol:
+            logger.warning("log() called before run()")
+            return
         notification = JsonRpcNotification(
             method="log",
             params={
@@ -316,7 +316,7 @@ if not self._protocol:
     
     def _handle_execute(self, request: JsonRpcRequest):
         """Handle command execution request."""
-        params = request.params or {}
+        params = request.params if isinstance(request.params, dict) else {}
         function_name = params.get("function", "")
         arguments = params.get("arguments") or {}
         context_data = params.get("context") or []

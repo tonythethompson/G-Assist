@@ -35,7 +35,7 @@ class Context:
     messages: List[Message] = field(default_factory=list)
     
     @classmethod
-    def from_list(cls, data: List[Dict[str, str]]) -> "Context":
+    def from_list(cls, data: Any) -> "Context":
         if not isinstance(data, list):
             return cls()
         messages = []
@@ -61,7 +61,7 @@ class SystemInfo:
     raw: str = ""
     
     @classmethod
-    def from_string(cls, data: str) -> "SystemInfo":
+    def from_string(cls, data: Any) -> "SystemInfo":
         if not isinstance(data, str):
             data = "" if data is None else str(data)
         return cls(raw=data)
