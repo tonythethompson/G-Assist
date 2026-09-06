@@ -18,6 +18,7 @@ Provides a simple decorator-based API for building plugins:
 import logging
 import sys
 import os
+import queue
 import traceback
 import signal
 import threading
@@ -125,6 +126,9 @@ class Plugin:
         self._initialized = False
         self._keep_session = False
         self._execute_lock = threading.Lock()
+        self._commands_lock = threading.Lock()
+        self._work_queue: "queue.Queue[Optional[JsonRpcRequest]]" = queue.Queue()
+        self._worker_thread: Optional[threading.Thread] = None
         
         # Register shutdown handler
         signal.signal(signal.SIGTERM, self._handle_signal)
@@ -145,11 +149,12 @@ class Plugin:
             cmd_name = name or func.__name__
             cmd_desc = description or func.__doc__ or ""
             
-            self._commands[cmd_name] = CommandInfo(
-                name=cmd_name,
-                handler=func,
-                description=cmd_desc
-            )
+            with self._commands_lock:
+                self._commands[cmd_name] = CommandInfo(
+                    name=cmd_name,
+                    handler=func,
+                    description=cmd_desc
+                )
             
             logger.debug(f"Registered command: {cmd_name}")
             return func
@@ -212,6 +217,12 @@ class Plugin:
         # Initialize V2 protocol
         self._protocol = Protocol()
         self._running = True
+        self._worker_thread = threading.Thread(
+            target=self._execute_worker,
+            name="gassist-execute",
+            daemon=True,
+        )
+        self._worker_thread.start()
         
         try:
             self._run_loop()
@@ -221,6 +232,9 @@ class Plugin:
             logger.error(f"Unexpected error: {e}\n{traceback.format_exc()}")
         finally:
             self._running = False
+            self._work_queue.put(None)
+            if self._worker_thread is not None:
+                self._worker_thread.join(timeout=2.0)
             logger.info(f"Plugin '{self.name}' stopped")
     
     def _run_loop(self):
@@ -236,13 +250,7 @@ class Plugin:
                     break
 
                 if request.method in ("execute", "input"):
-                    worker = threading.Thread(
-                        target=self._handle_request_safe,
-                        args=(request,),
-                        name=f"gassist-{request.method}",
-                        daemon=True,
-                    )
-                    worker.start()
+                    self._work_queue.put(request)
                 else:
                     self._handle_request(request)
 
@@ -253,6 +261,14 @@ class Plugin:
                 # Continue trying to read next message
             except Exception as e:
                 logger.error(f"Error processing message: {e}\n{traceback.format_exc()}")
+
+    def _execute_worker(self):
+        """Drain execute/input requests on a single worker thread."""
+        while True:
+            request = self._work_queue.get()
+            if request is None:
+                return
+            self._handle_request_safe(request)
 
     def _handle_request_safe(self, request: JsonRpcRequest):
         """Run execute/input on a worker without racing another command."""
@@ -308,8 +324,10 @@ class Plugin:
         logger.info(f"Initializing with engine version: {params.get('engine_version', 'unknown')}")
         
         # Debug: Log command info before building response
+        with self._commands_lock:
+            commands = list(self._commands.values())
         commands_list = []
-        for cmd in self._commands.values():
+        for cmd in commands:
             logger.debug(f"Command '{cmd.name}': description type={type(cmd.description).__name__}, value={repr(cmd.description)[:100]}")
             commands_list.append({
                 "name": cmd.name,
@@ -345,7 +363,8 @@ class Plugin:
         logger.info(f"Executing command: {function_name}")
         
         # Find command handler
-        cmd = self._commands.get(function_name)
+        with self._commands_lock:
+            cmd = self._commands.get(function_name)
         if cmd is None:
             response = JsonRpcResponse.make_error(
                 request.id,
@@ -396,7 +415,8 @@ class Plugin:
         
         try:
             # Find a handler for user input
-            handler = self._commands.get("on_input")
+            with self._commands_lock:
+                handler = self._commands.get("on_input")
             
             if handler:
                 result = self._call_handler(handler.handler, {"content": content}, None, None)
@@ -823,11 +843,12 @@ class MCPPlugin(Plugin):
                 return handler
             
             # Register as plugin command
-            self._commands[func.name] = CommandInfo(
-                name=func.name,
-                handler=make_handler(func.name),
-                description=func.description
-            )
+            with self._commands_lock:
+                self._commands[func.name] = CommandInfo(
+                    name=func.name,
+                    handler=make_handler(func.name),
+                    description=func.description
+                )
             
             logger.debug(f"Registered command: {func.name}")
     
@@ -863,11 +884,12 @@ class MCPPlugin(Plugin):
                 return handler
             
             # Register as command
-            self._commands[name] = CommandInfo(
-                name=name,
-                handler=make_lazy_handler(name),
-                description=func_data.get("description", "")
-            )
+            with self._commands_lock:
+                self._commands[name] = CommandInfo(
+                    name=name,
+                    handler=make_lazy_handler(name),
+                    description=func_data.get("description", "")
+                )
             
             logger.debug(f"Loaded cached command: {name}")
     
