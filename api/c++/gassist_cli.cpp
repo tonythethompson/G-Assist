@@ -119,7 +119,9 @@ bool LoadWavFile(const std::string& filename, std::vector<int16_t>& samples, int
     }
 
     uint16_t audioFormat = 0;
+    uint16_t channelCount = 0;
     uint16_t bitsPerSample = 0;
+    uint32_t sampleRateValue = 0;
     uint32_t dataSize = 0;
     std::streampos dataPos = 0;
     bool foundFmt = false;
@@ -137,8 +139,8 @@ bool LoadWavFile(const std::string& filename, std::vector<int16_t>& samples, int
                 return false;
             }
             if (!ReadExact(file, &audioFormat, 2) ||
-                !ReadExact(file, &channels, 2) ||
-                !ReadExact(file, &sampleRate, 4)) {
+                !ReadExact(file, &channelCount, 2) ||
+                !ReadExact(file, &sampleRateValue, 4)) {
                 return false;
             }
             uint32_t byteRate = 0;
@@ -169,6 +171,9 @@ bool LoadWavFile(const std::string& filename, std::vector<int16_t>& samples, int
     if (!foundFmt || !foundData || audioFormat != 1 || bitsPerSample != 16 || dataSize == 0) {
         return false;
     }
+
+    sampleRate = static_cast<int>(sampleRateValue);
+    channels = static_cast<int>(channelCount);
 
     file.seekg(dataPos);
     size_t numSamples = dataSize / sizeof(int16_t);
