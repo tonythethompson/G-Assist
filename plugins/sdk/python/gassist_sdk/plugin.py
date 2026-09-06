@@ -181,9 +181,9 @@ class Plugin:
     
     def log(self, message: str, level: LogLevel = LogLevel.INFO):
         """Send a log message to the engine (for debugging)."""
-        if not self._protocol:
-            logger.warning("log() called before run(); %s", message)
-            return
+if not self._protocol:
+    logger.warning("log() called before run()")
+    return
         notification = JsonRpcNotification(
             method="log",
             params={
