@@ -289,7 +289,7 @@ public:
             }
 
             std::string method = message.value("method", "");
-            if (method == "execute" || method == "input") {
+            if (method == "execute") {
                 enqueue_work(std::move(message));
             } else {
                 handle_message(message);
