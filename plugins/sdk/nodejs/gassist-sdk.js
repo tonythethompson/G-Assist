@@ -107,13 +107,11 @@ class Protocol {
                 return false;
             }
 
-            // Create length-prefixed message
+            // Create length-prefixed message in one write to avoid framing corruption.
             const header = Buffer.alloc(4);
             header.writeUInt32BE(payload.length, 0);
-
-            // Write to stdout
-            process.stdout.write(header);
-            process.stdout.write(payload);
+            const frame = Buffer.concat([header, payload]);
+            process.stdout.write(frame);
 
             return true;
         } catch (err) {
