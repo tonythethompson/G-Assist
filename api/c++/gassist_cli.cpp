@@ -171,11 +171,18 @@ bool LoadWavFile(const std::string& filename, std::vector<int16_t>& samples, int
     if (!foundFmt || !foundData || audioFormat != 1 || bitsPerSample != 16 || dataSize == 0) {
         return false;
     }
+    if (dataSize % sizeof(int16_t) != 0) {
+        return false;
+    }
 
     sampleRate = static_cast<int>(sampleRateValue);
     channels = static_cast<int>(channelCount);
 
+    file.clear();
     file.seekg(dataPos);
+    if (!file) {
+        return false;
+    }
     size_t numSamples = dataSize / sizeof(int16_t);
     samples.resize(numSamples);
     if (!ReadExact(file, samples.data(), dataSize)) {
@@ -524,6 +531,10 @@ std::string DoLLM(const std::string& prompt) {
     // Build JSON request
     std::string jsonRequest = "{\"prompt\":\"" + EscapeJsonString(prompt) +
                               "\",\"context_assist\":{},\"client_config\":{}}";
+
+    if (jsonRequest.length() >= sizeof(NV_REQUEST_RISE_SETTINGS_V1::content)) {
+        return "ERROR: LLM prompt too long";
+    }
 
     // Send request
     NV_REQUEST_RISE_SETTINGS_V1 requestSettings = { 0 };
