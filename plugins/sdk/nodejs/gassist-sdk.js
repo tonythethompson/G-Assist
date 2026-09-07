@@ -247,7 +247,7 @@ class Plugin {
         this._workChain = this._workChain
             .then(fn)
             .catch((err) => {
-                this.log(`Work queue error: ${err.message}`);
+                this.log(`Work queue error: ${err && err.stack ? err.stack : String(err)}`);
             });
     }
 
