@@ -117,7 +117,7 @@ bool LoadWavFile(const std::string& filename, std::vector<int16_t>& samples, int
     if (std::strncmp(riff, "RIFF", 4) != 0 || std::strncmp(wave, "WAVE", 4) != 0) {
         return false;
     }
-
+    (void)chunkSize;
     uint16_t audioFormat = 0;
     uint16_t channelCount = 0;
     uint16_t bitsPerSample = 0;
