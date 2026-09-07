@@ -79,6 +79,18 @@ inline json as_text(const json& data) {
     return data.dump();
 }
 
+inline bool rpc_request_id(const json& message, int& out_id) {
+    if (!message.contains("id") || message["id"].is_null()) {
+        out_id = -1;
+        return true;
+    }
+    if (message["id"].is_number_integer()) {
+        out_id = message["id"].get<int>();
+        return true;
+    }
+    return false;
+}
+
 } // namespace detail
 
 // ============================================================================
